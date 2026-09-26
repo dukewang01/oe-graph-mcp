@@ -66,8 +66,8 @@ python -m oe_graph_mcp.server               # ← 需要 cwd 在仓库根
 }
 ```
 
-> **冷启动实测 2.2–4.8 秒**（本机实测：Hermes venv + mcp 2.0.0 = 2.5s；
-> 系统 Python 3.14 + mcp 1.26.0 = 3.8s；裸解释器只占 0.29s）。
+> **冷启动实测 2.2–4.9 秒**（本机实测：Hermes venv + mcp 2.0.0 = 2.5s；
+> 系统 Python 3.14 + mcp 1.26.0 = 3.8–4.9s；裸解释器只占 0.29s）。
 > 时间几乎全花在 **MCP SDK 自己的 import** 上 —— `mcp.server.lowlevel`
 > 拉起 `jsonschema`，再拉起 `rfc3987_syntax` 这个正则模块，单项就吃掉 2.25s。
 > **这部分不在本包的控制范围内**，做过 importtime 实测，不是猜的。
