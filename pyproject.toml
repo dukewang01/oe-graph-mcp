@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "oe-graph-mcp"
+version = "0.1.0"
+description = "酒店 OE 运营物资盘点：本地校验、建模、出图、脱敏指纹（MCP server，全部本地执行）"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+keywords = ["hotel", "housekeeping", "inventory", "oe", "mcp", "酒店", "盘点", "运营物资"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Office/Business",
+  "Intended Audience :: Financial and Insurance Industry",
+]
+# mcp>=1.26,<3 同时覆盖 1.x(mcp.server.fastmcp) 与 2.x(mcp.server.mcpserver)，
+# 服务端代码里有兼容层，两个分支都测过。
+dependencies = ["mcp>=1.26,<3"]
+
+[project.optional-dependencies]
+xlsx = ["openpyxl>=3.1"]     # 只有读 .xlsx 才需要；CSV 零依赖
+dev = ["pytest>=7"]
+
+[project.scripts]
+oe-graph-mcp = "oe_graph_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["oe_graph_mcp"]
