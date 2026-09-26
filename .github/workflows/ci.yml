@@ -1,0 +1,89 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # 隐私闸要扫全部提交，浅克隆扫不全
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: 安装依赖
+        run: python -m pip install --quiet openpyxl mcp
+
+      - name: 隐私闸（提交里不允许出现真实数据）
+        run: python tests/privacy_audit.py
+
+      - name: 端到端冒烟
+        run: python tests/smoke.py
+
+      - name: 真握手（裸 JSON-RPC，不用 MCP 客户端 SDK）
+        run: |
+          python tests/handshake.py "$(which python)" oe_graph_mcp/server.py \
+            "ci-py${{ matrix.python-version }}"
+
+  draw-path:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 安装依赖
+        run: python -m pip install --quiet openpyxl mcp
+
+      # 刻意不直接调 core/render：走 oe_demo，也就是 agent 实际会走的那条
+      # 代码路径。这样 CI 顺带验证了工具层自己在真实调用下不炸。
+      - name: 绘制路径（画布真的画了吗？坐标有没有 NaN？）
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+
+          sys.path.insert(0, ".")
+          from oe_graph_mcp.server import oe_demo
+
+          r = json.loads(oe_demo("sample/_ci"))
+          assert "error" not in r, r
+          print("生成的图谱:", r["html_path"])
+          print("统计:", r["stats"])
+          with open("sample/_ci/html_path.txt", "w", encoding="utf-8") as fh:
+              fh.write(r["html_path"])
+          PY
+          node tests/render_draw.js "$(cat sample/_ci/html_path.txt)"
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # README 里承诺的第一条命令，必须在干净机器上真的能跑
+      - name: uvx 独立环境启动（README 的 30 秒跑通就是这么写的）
+        run: |
+          python -m pip install --quiet uv
+          printf '%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' \
+            | uvx --from . oe-graph-mcp \
+            | tee /tmp/handshake.json
+          grep -q '"serverInfo"' /tmp/handshake.json
+          grep -q '"protocolVersion":"2025-06-18"' /tmp/handshake.json
+          echo "uvx 路径 OK"
